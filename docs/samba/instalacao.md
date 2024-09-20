@@ -1,195 +1,208 @@
 ---
 
-# Instalação do Samba como Controlador de Domínio Active Directory no Alpine Linux
+# Instalação do Samba como Controlador de Domínio do Active Directory no Alpine Linux
 
-Este guia fornece instruções passo a passo para instalar e configurar o _Samba_ como um _Controlador de Domínio Active Directory (AD)_ no _Alpine Linux_. O domínio que será configurado é ms.lab.
+## Introdução
+Guia de instalação e configuração do Samba como um controlador de domínio do Active Directory no Alpine Linux (domínio ms.lab)
 
-## 🔧 Requisitos
 
-- _Sistema Operacional:_ Alpine Linux
-- _Nome do Domínio:_ ms.lab
+## Pré-requisitos
+- Alpine Linux.
+- Acesso com permissão de usuário root.
 
----
-
-## 1️⃣ Instalar os Pacotes Necessários
-
-Antes de começar, certifique-se de que seu sistema está atualizado e pronto para a instalação dos pacotes necessários:
+## Passo 1: Atualizar o Sistema
+Atualize os repositórios e pacotes do Alpine:
 
 ```bash
-sudo apk update
-sudo apk add samba samba-dc samba-winbind samba-winbind-clients krb5-server krb5-libs krb5-dc tdb-tools openrc
+apk update
+apk upgrade
 ```
 
----
-
-## 2️⃣ Configurar o Kerberos
-
-O Kerberos é crucial para a autenticação no Active Directory. Vamos configurá-lo:
-
-### Editar o arquivo de configuração do Kerberos:
+## Passo 2: Instalando dependências
+Instale os pacotes necessários para o Samba, incluindo o controlador de domínio e o Kerberos:
 
 ```bash
-sudo nano /etc/krb5.conf
+apk add samba samba-client samba-tools samba-dc krb5 openrc
 ```
 
-### Substituir o conteúdo por:
+## Passo 3: Configurar o Samba
+
+### 3.1 Modificar o Arquivo /etc/hosts
+Edite o arquivo /etc/hosts para incluir o hostname e o IP local:
+
+```bash
+micro /etc/hosts
+```
+
+Adicione as seguintes linhas:
+
+
+127.0.0.1 localhost.localdomain localhost
+10.1.1.10 ms.lab ms
+
+
+### 3.2 Criar o Arquivo de Configuração
+Crie um novo arquivo de configuração para o Samba:
+
+```bash
+micro /etc/samba/smb.conf
+```
+
+Adicione a seguinte configuração:
 
 ```ini
-[libdefaults]
-default_realm = MS.LAB
-dns_lookup_realm = false
-dns_lookup_kdc = true
+[global]
+   server role = domain controller
+   workgroup = ms
+   realm = ms.lab
+   netbios name = MS
+   passdb backend = samba4
+   idmap_ldb:use rfc2307 = yes
 
-[realms]
-MS.LAB = {
-kdc = ad.ms.lab
-admin_server = ad.ms.lab
-}
+[netlogon]
+   path = /var/lib/samba/sysvol/ms.lab/scripts
+   read only = No
 
-[domain_realm]
-.ms.lab = MS.LAB
-ms.lab = MS.LAB
+[sysvol]
+   path = /var/lib/samba/sysvol
+   read only = No
 ```
 
-> _Nota:_ Certifique-se de que os nomes de domínio e servidores estão corretamente configurados.
+### 3.3 Criar o Banco de Dados do Samba
+Inicialize o banco de dados do Samba:
+
+```bash
+samba-tool domain provision --use-rfc2307 --realm=ms.lab --domain=ms --adminpass=SUA_SENHA
+```
+
+> *Nota:* Substitua SUA_SENHA por uma senha forte.
+
+## Passo 4: Configurar DNS
+
+### 4.1 Adicionar o Servidor DNS
+Edite o arquivo de configuração do DNS em /etc/samba/smb.conf:
+
+```bash
+micro /etc/samba/smb.conf
+```
+
+Adicione ou edite a linha:
+
+```ini
+dns forwarder = 8.8.8.8
+```
+
+### 4.2 Configuração do Kerberos
+Link o arquivo krb5.conf gerado pelo Samba:
+
+```bash
+ln -sf /var/lib/samba/private/krb5.conf /etc/krb5.conf
+```
+
+### 4.3 Iniciar o Samba e o DNS
+Ative os serviços do Samba:
+
+```bash
+rc-update add samba default
+rc-service samba start
+```
+
+markdown
+## Passo 5: Configurar o Firewall
+
+Se você estiver usando um firewall, certifique-se de permitir o tráfego para as portas do Samba. Abaixo está a configuração necessária:
+
+### Configuração de Portas
+
+```bash
+# TCP
+iptables -A INPUT -p tcp --dport 53 -j ACCEPT
+iptables -A INPUT -p tcp --dport 88 -j ACCEPT
+iptables -A INPUT -p tcp --dport 135 -j ACCEPT
+iptables -A INPUT -p tcp --dport 139 -j ACCEPT
+iptables -A INPUT -p tcp --dport 445 -j ACCEPT
+
+# UDP
+iptables -A INPUT -p udp --dport 53 -j ACCEPT
+iptables -A INPUT -p udp --dport 88 -j ACCEPT
+iptables -A INPUT -p udp --dport 137 -j ACCEPT
+iptables -A INPUT -p udp --dport 138 -j ACCEPT
+```
+
+### Diagrama de Fluxo
+
+```plaintext
++---------------------------+
+|       Firewall            |
++---------------------------+
+          |
+          | Permitir Tráfego
+          v
++---------------------------+
+|      Permitir TCP         |
+|  Portas: 53, 88, 135,     |
+|         139, 445          |
++---------------------------+
+          |
+          | Permitir Tráfego
+          v
++---------------------------+
+|      Permitir UDP         |
+|  Portas: 53, 88, 137,     |
+|         138               |
++---------------------------+
+```
+
+## Passo 6: Verificar a Instalação
+Verifique se o Samba está funcionando corretamente:
+
+```bash
+samba-tool domain level show
+```
+
+## Passo 7: Adicionar Usuários
+Para adicionar usuários ao domínio, use o seguinte comando:
+
+```bash
+samba-tool user create SEU_USUARIO SUA_SENHA
+```
+
+> *Nota:* Substitua SEU_USUARIO e SUA_SENHA pelos valores desejados.
 
 ---
 
-## 3️⃣ Configurar o Samba
+## Diagrama de Configuração do Samba
 
-Agora vamos remover a configuração padrão do Samba e configurar o controlador de domínio.
-
-### Remover qualquer configuração antiga:
-
-```bash
-sudo rm /etc/samba/smb.conf
 ```
-
-### Provisionar o Controlador de Domínio:
-
-Execute o seguinte comando para provisionar o Samba como _Controlador de Domínio Active Directory_:
-
-```bash
-sudo samba-tool domain provision --use-rfc2307 --realm=MS.LAB --domain=MS --adminpass=SenhaSegura! --server-role=dc
-```
-
-> _Dica:_ Substitua SenhaSegura! por uma senha forte de sua escolha.
-
----
-
-## 4️⃣ Iniciar o Samba Automaticamente
-
-Configure o Samba para iniciar automaticamente sempre que o sistema for inicializado.
-
-### Adicionar o Samba ao OpenRC:
-
-```bash
-sudo rc-update add samba default
-```
-
-### Iniciar o Samba manualmente pela primeira vez:
-
-```bash
-sudo rc-service samba start
-```
-
----
-
-## 5️⃣ Verificar a Configuração
-
-### Verificar o Nível do Domínio:
-
-Certifique-se de que o Samba foi configurado corretamente:
-
-```bash
-sudo samba-tool domain level show
-```
-
-### Testar o Kerberos:
-
-Execute os comandos abaixo para verificar se o Kerberos está funcionando corretamente:
-
-```bash
-kinit administrator
-klist
-```
-
----
-
-## 6️⃣ Configurar o DNS
-
-Se você estiver utilizando o DNS embutido do Samba, certifique-se de que ele está funcionando como esperado:
-
-```bash
-dig -t SRV \_ldap.\_tcp.ms.lab
-```
-
----
-
-## 7️⃣ Configurar o Winbind
-
-O _Winbind_ permite que máquinas Linux e Windows interajam com o servidor Samba.
-
-### Editar o arquivo nsswitch.conf:
-
-```bash
-sudo nano /etc/nsswitch.conf
-```
-
-### Certifique-se de que as seguintes linhas estejam presentes:
-
-passwd: compat winbind
-group: compat winbind
-
-### Iniciar o serviço _Winbind_:
-
-```bash
-sudo rc-service winbind start
-sudo rc-update add winbind default
-```
-
----
-
-## 8️⃣ Conclusão
-
-Parabéns! O Samba foi configurado como um Controlador de Domínio Active Directory no domínio ms.lab.
-
-Agora você pode:
-
-- Conectar máquinas Windows ao domínio
-- Gerenciar centralmente os usuários e recursos de rede
-
-> _Dica:_ Para personalizações adicionais, você pode editar o arquivo de configuração localizado em /etc/samba/smb.conf.
-
----
-
-## 📜 Comandos Úteis
-
-Aqui estão alguns comandos que podem ser úteis para manutenção e monitoramento do Samba e do Kerberos:
-
-### Verificar o status do Samba:
-
-```bash
-sudo samba-tool domain level show
-```
-
-### Verificar o status do Kerberos:
-
-```bash
-kinit administrator
-klist
-```
-
-### Ver logs e mensagens de erro do Samba:
-
-```bash
-tail -f /var/log/samba/log.samba
+  +-------------------+
+  |   Alpine Linux    |
+  +-------------------+
+           |
+           |
+  +-------------------+
+  |   Samba AD DC     |
+  +-------------------+
+           |
+           |
+  +-------------------+
+  |  Active Directory |
+  +-------------------+
 ```
 
 ---
 
-## 📚 Recursos Adicionais
+## Tabela de Portas do Samba
 
-- Consulte a [Documentação Oficial do Samba](https://wiki.samba.org/index.php/Main_Page) para obter mais informações e recursos.
+| Protocolo | Porta | Descrição                |
+| --------- | ----- | ------------------------ |
+| TCP       | 53    | DNS                      |
+| TCP       | 88    | Kerberos                 |
+| TCP       | 135   | RPC                      |
+| TCP       | 139   | NetBIOS Session Service  |
+| TCP       | 445   | SMB over TCP             |
+| UDP       | 53    | DNS                      |
+| UDP       | 88    | Kerberos                 |
+| UDP       | 137   | NetBIOS Name Service     |
+| UDP       | 138   | NetBIOS Datagram Service |
 
 ---
