@@ -104,5 +104,5 @@ Abaixo estão os comandos de verificação executados e a confirmação da cria�
 
 ## Conclusão
 
-Os registros DNS do tipo **A** foram criados com sucesso na zona **ms.lab**, associando os respectivos endereços IP aos nomes de host indicados. A verificação final confirma que os registros foram adicionados corretamente, o que pode ser visto na listagem de registros após a execução dos comandos.
+Os registros DNS do tipo **A** foram criados com sucesso para zona **ms.lab**, associando os respectivos endereços IP aos nomes de host indicados. A verificação final confirma que os registros foram adicionados corretamente, o que pode ser visto na listagem de registros após a execução dos comandos.
 
