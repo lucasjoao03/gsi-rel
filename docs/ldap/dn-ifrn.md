@@ -58,9 +58,11 @@ Essa estrutura hierárquica é o que permite que o LDAP localize de forma precis
 
 [Baixar o PDF da Explicação do DN em manuscrito](./CamScanner%2019-09-2024%2023.08.pdf) -->
 
----
-
 # Componentes do Distinguished Name (DN)
+
+!!! note "Observações"
+
+    Como seu trabalho manuscrito ficou simples, foi considerada somente esta versão hipertexto.
 
 ## DN Completo:
 

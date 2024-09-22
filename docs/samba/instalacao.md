@@ -1,6 +1,9 @@
----
-
 # Instalação do Samba como Controlador de Domínio do Active Directory no Alpine Linux
+
+!!! note "Observações"
+
+    1. Não existe o pacote `samba-tools`
+    2. Vocês não configuraram o nome totalmente qualificado da máquina (FQDN: `<capital>.<estado>.lab`)
 
 ## Introdução
 Guia de instalação e configuração do Samba como um controlador de domínio do Active Directory no Alpine Linux (domínio ms.lab)
